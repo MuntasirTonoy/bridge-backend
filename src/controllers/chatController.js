@@ -76,14 +76,27 @@ const getMessages = async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserId = req.user.id;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 30;
+    const skip = (page - 1) * limit;
 
-    const messages = await Message.find({
+    const query = {
       $or: [
         { senderId: currentUserId, receiverId: userId },
         { senderId: userId, receiverId: currentUserId }
       ],
       deletedBy: { $ne: currentUserId }
-    }).sort({ createdAt: 1 });
+    };
+
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    messages.reverse(); // Reverse for chronological order
+
+    const totalMessages = await Message.countDocuments(query);
+    const hasMore = skip + messages.length < totalMessages;
 
     // Mark unread messages as read
     await Message.updateMany(
@@ -91,7 +104,7 @@ const getMessages = async (req, res) => {
       { isRead: true }
     );
 
-    res.json(messages);
+    res.json({ messages, hasMore, page });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

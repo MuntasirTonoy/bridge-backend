@@ -19,7 +19,15 @@ const server = http.createServer(app);
 connectDB();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://bridgexi.vercel.app',
+    'https://bridge-frontend-xi.vercel.app', // just in case
+    process.env.FRONTEND_URL
+  ].filter(Boolean),
+  credentials: true
+}));
 app.use(express.json());
 
 // API Routes
@@ -39,7 +47,14 @@ app.get('/', (req, res) => {
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: [
+      'http://localhost:3000',
+      'https://bridgexi.vercel.app',
+      'https://bridge-frontend-xi.vercel.app',
+      process.env.FRONTEND_URL
+    ].filter(Boolean),
+    methods: ["GET", "POST"],
+    credentials: true
   },
 });
 
