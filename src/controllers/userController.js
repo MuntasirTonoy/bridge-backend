@@ -1,9 +1,10 @@
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // Update user profile
 const updateProfile = async (req, res) => {
   try {
-    const { name, username, bio, location, profilePic } = req.body;
+    const { name, username, bio, location, profilePic, gender, mobileNumber, dateOfBirth } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user) {
@@ -23,6 +24,9 @@ const updateProfile = async (req, res) => {
     if (bio !== undefined) user.bio = bio;
     if (location !== undefined) user.location = location;
     if (profilePic !== undefined) user.profilePic = profilePic;
+    if (gender !== undefined) user.gender = gender;
+    if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
+    if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
 
     await user.save();
 
@@ -71,4 +75,28 @@ const archiveChat = async (req, res) => {
   }
 };
 
-module.exports = { updateProfile, blockUser, archiveChat };
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Incorrect old password' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { updateProfile, blockUser, archiveChat, changePassword };

@@ -112,4 +112,46 @@ const checkUsername = async (req, res) => {
   }
 };
 
-module.exports = { registerUser, authUser, getUserProfile, getUsers, checkUsername };
+const googleLogin = async (req, res) => {
+  const { email, name, image } = req.body;
+
+  try {
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create new user if doesn't exist
+      const baseUsername = email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
+      let username = baseUsername;
+      let count = 1;
+      
+      while (await User.findOne({ username })) {
+        username = `${baseUsername}${count}`;
+        count++;
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(Math.random().toString(36).slice(-10), salt);
+
+      user = await User.create({
+        name,
+        email,
+        username,
+        profilePic: image || '',
+        password: hashedPassword,
+      });
+    }
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      username: user.username,
+      email: user.email,
+      profilePic: user.profilePic,
+      token: generateToken(user._id),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = { registerUser, authUser, getUserProfile, getUsers, checkUsername, googleLogin };

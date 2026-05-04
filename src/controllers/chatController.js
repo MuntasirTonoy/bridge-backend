@@ -20,7 +20,24 @@ const getConversations = async (req, res) => {
       .populate('lastMessage')
       .sort({ lastUpdated: -1 });
 
-    res.json(conversations);
+    const Message = require('../models/Message');
+    const convsWithUnread = await Promise.all(conversations.map(async (c) => {
+      const otherParticipant = c.participants.find(p => p._id.toString() !== req.user.id);
+      let unreadCount = 0;
+      if (otherParticipant) {
+        unreadCount = await Message.countDocuments({
+          senderId: otherParticipant._id,
+          receiverId: req.user.id,
+          isRead: false
+        });
+      }
+      return {
+        ...c.toObject(),
+        unreadCount
+      };
+    }));
+
+    res.json(convsWithUnread);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -51,51 +51,52 @@ io.on('connection', (socket) => {
 
   // User joins with their MongoDB _id
   socket.on('join', (userId) => {
+    socket.join(userId);
     onlineUsers.set(userId, socket.id);
     // Broadcast updated online user list
     io.emit('onlineUsers', Array.from(onlineUsers.keys()));
-    console.log(`User ${userId} is now online. Total online: ${onlineUsers.size}`);
+    console.log(`User ${userId} joined room ${userId}`);
   });
 
   // Handle sending messages in real-time
   socket.on('sendMessage', (data) => {
     const { receiverId } = data;
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('receiveMessage', data);
-    }
+    io.to(receiverId).emit('receiveMessage', data);
   });
 
   // Handle typing indicators
   socket.on('typing', ({ senderId, receiverId }) => {
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('userTyping', { senderId });
-    }
+    io.to(receiverId).emit('userTyping', { senderId });
   });
 
   socket.on('stopTyping', ({ senderId, receiverId }) => {
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('userStopTyping', { senderId });
+    io.to(receiverId).emit('userStopTyping', { senderId });
+  });
+
+  // Handle message read status
+  socket.on('markMessagesRead', async ({ senderId, receiverId }) => {
+    try {
+      const Message = require('./models/Message');
+      await Message.updateMany(
+        { senderId, receiverId, isRead: false },
+        { isRead: true }
+      );
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
     }
+
+    io.to(senderId).emit('messagesRead', { receiverId });
   });
 
   // Message edits/deletions
   socket.on('editMessage', (data) => {
     const { receiverId } = data;
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('messageUpdated', data);
-    }
+    io.to(receiverId).emit('messageUpdated', data);
   });
 
   socket.on('deleteMessage', (data) => {
     const { receiverId } = data;
-    const receiverSocketId = onlineUsers.get(receiverId);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('messageDeleted', data);
-    }
+    io.to(receiverId).emit('messageDeleted', data);
   });
 
   socket.on('disconnect', () => {
